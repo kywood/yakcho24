@@ -11,6 +11,8 @@ composeBom = "2024.09.00"
 ksp = "2.0.21-1.0.28"
 camerax = "1.4.1"
 playServicesLocation = "21.3.0"
+playServicesMaps = "19.0.0"
+mapsCompose = "4.4.1"
 tflite = "2.16.1"
 tfliteSupport = "0.4.4"
 hilt = "2.52"
@@ -62,6 +64,8 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 # Location
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 # TFLite
 tflite-core = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 tflite-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version.ref = "tflite" }

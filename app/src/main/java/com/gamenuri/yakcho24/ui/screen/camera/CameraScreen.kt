@@ -68,6 +68,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.android.gms.location.LocationServices
 
+import androidx.camera.core.Camera
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+
 private const val TAG = "BBoxDiag"
 
 @Composable
@@ -87,6 +92,10 @@ fun CameraScreen() {
                     == PackageManager.PERMISSION_GRANTED
         )
     }
+
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    var zoomRatio by remember { mutableStateOf(1f) }
+
     var locationText by remember { mutableStateOf("위치 정보 로딩 중...") }
     val recognitionResults = remember { mutableStateListOf<DetectionResult>() }
     // 회전 적용 후 똑바른 이미지 크기 (오버레이 좌표 변환 기준)
@@ -145,11 +154,30 @@ fun CameraScreen() {
             .addOnFailureListener { locationText = "위치 불러오기 실패" }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(camera) {
+                detectTransformGestures { _, _, zoom, _ ->
+                    val cam = camera ?: return@detectTransformGestures
+                    val zoomState = cam.cameraInfo.zoomState.value ?: return@detectTransformGestures
+
+                    val newZoom = (zoomState.zoomRatio * zoom)
+                        .coerceIn(zoomState.minZoomRatio, zoomState.maxZoomRatio)
+
+                    cam.cameraControl.setZoomRatio(newZoom)
+                    zoomRatio = newZoom
+                }
+            }
+    ) {
         if (hasCameraPermission) {
             CameraPreview(
                 modifier = Modifier.fillMaxSize(),
                 lifecycleOwner = lifecycleOwner,
+                onCameraReady = { cam ->
+                    camera = cam
+                    zoomRatio = cam.cameraInfo.zoomState.value?.zoomRatio ?: 1f
+                },
                 onFrameAnalyzed = { imageProxy ->
                     val rotation = imageProxy.imageInfo.rotationDegrees
 
@@ -208,6 +236,21 @@ fun CameraScreen() {
             delegateInfo = classifier.delegateInfo,
             modifier = Modifier.align(Alignment.TopStart),
         )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 52.dp, end = 12.dp)
+                .background(Color.Black.copy(alpha = 0.60f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+        ) {
+            Text(
+                text = String.format("%.1fx", zoomRatio),
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 
@@ -224,6 +267,7 @@ private fun rotateBitmap(src: Bitmap, degrees: Int): Bitmap {
 private fun CameraPreview(
     modifier: Modifier = Modifier,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+    onCameraReady: (Camera) -> Unit = {},
     onFrameAnalyzed: (ImageProxy) -> Unit,
 ) {
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -261,12 +305,20 @@ private fun CameraPreview(
                                     }
                                 }
                             cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
+                            val camera = cameraProvider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,
                                 imageAnalysis,
                             )
+                            onCameraReady(camera)
+
+//                            cameraProvider.bindToLifecycle(
+//                                lifecycleOwner,
+//                                CameraSelector.DEFAULT_BACK_CAMERA,
+//                                preview,
+//                                imageAnalysis,
+//                            )
                         } catch (e: Exception) {
                             Log.e(TAG, "카메라 바인딩 실패", e)
                         }

@@ -134,7 +134,7 @@ class HerbClassifier(
 
         // 출력 버퍼: [1, dim1, dim2]
         val (d1, d2) = if (attrsFirst) numAttributes to numDetections
-                       else numDetections to numAttributes
+        else numDetections to numAttributes
         val output = Array(1) { Array(d1) { FloatArray(d2) } }
 
         runCatching {

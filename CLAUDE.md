@@ -80,3 +80,22 @@ The app requires CAMERA (hardware feature, required) + ACCESS_FINE_LOCATION + AC
 ## Development Status
 
 Most screens (`HerbListScreen`, `HerbMapScreen`, `LoginScreen`) are UI placeholders. The DI modules and `HerbViewModel` are empty stubs pending backend integration (Retrofit/Room not yet wired up).
+
+
+## TODO
+
+### 진행중
+- [ ] 학습 라벨링 데이터 썸네일 추출
+
+
+### 완료
+- [x] 카메라 줌
+- [x] 카메라 화면 + GPS
+- [x] TFLite 추론 + 바운딩박스
+- [x] GPU Delegate 적용
+- [x] 지도 탭 구현 + 실시간 위치 아이콘
+- [x] 상단 GPS 주소 동 단위까지 표기
+
+## google api key
+- AIzaSyDwmOfI73SZmctxW3WKG2_mXebNtmn_wUI
+
