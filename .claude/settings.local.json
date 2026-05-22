@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(./gradlew assembleDebug)",
-      "Bash(find /mnt/f -maxdepth 5 -name *.kt)"
-    ]
-  }
-}
