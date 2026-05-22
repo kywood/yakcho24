@@ -12,6 +12,7 @@ import android.util.Log
 import java.util.Locale
 import java.util.concurrent.Executors
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -72,6 +73,10 @@ import androidx.camera.core.Camera
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
 
 private const val TAG = "BBoxDiag"
 
@@ -126,18 +131,53 @@ fun CameraScreen() {
         if (toRequest.isNotEmpty()) permissionLauncher.launch(toRequest.toTypedArray())
     }
 
+
+    val gpsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        // 사용자가 팝업에서 '확인'을 누르면 다시 위치를 가져오도록 트리거 가능
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            Log.d("GPS", "사용자가 GPS 활성화함")
+        }
+    }
+
     LaunchedEffect(hasLocationPermission) {
         if (!hasLocationPermission) {
             locationText = "위치 권한 없음"
             return@LaunchedEffect
         }
+
+        // [수정 포인트 1] GPS 하드웨어 스위치 상태 체크 및 팝업 요청
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).build()
+        val settingsRequest = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .build()
+
+        val settingsClient = LocationServices.getSettingsClient(context)
+        settingsClient.checkLocationSettings(settingsRequest)
+            .addOnFailureListener { exception ->
+                if (exception is ResolvableApiException) {
+                    try {
+                        // 기기 GPS가 꺼져 있으면 여기서 시스템 팝업을 띄움
+                        val intentSenderRequest = IntentSenderRequest.Builder(exception.resolution.intentSender).build()
+                        gpsLauncher.launch(intentSenderRequest)
+                    } catch (e: Exception) {
+                        Log.e("GPS", "팝업 띄우기 실패", e)
+                    }
+                }
+            }
+
+        // [수정 포인트 2] lastLocation 대신 getCurrentLocation 사용 (더 적극적인 위치 획득)
         @SuppressLint("MissingPermission")
-        LocationServices.getFusedLocationProviderClient(context).lastLocation
+        LocationServices.getFusedLocationProviderClient(context)
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { location ->
                 if (location == null) {
-                    locationText = "위치 정보 없음"
+                    locationText = "위치 정보 없음 (GPS 신호 대기 중)"
                     return@addOnSuccessListener
                 }
+
+                // Geocoder 로직은 동일
                 val geocoder = Geocoder(context, Locale.KOREA)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
@@ -151,8 +191,39 @@ fun CameraScreen() {
                     locationText = addresses?.firstOrNull()?.toDisplayAddress() ?: "주소 변환 실패"
                 }
             }
-            .addOnFailureListener { locationText = "위치 불러오기 실패" }
+            .addOnFailureListener {
+                locationText = "위치 불러오기 실패"
+            }
     }
+
+
+//    LaunchedEffect(hasLocationPermission) {
+//        if (!hasLocationPermission) {
+//            locationText = "위치 권한 없음"
+//            return@LaunchedEffect
+//        }
+//        @SuppressLint("MissingPermission")
+//        LocationServices.getFusedLocationProviderClient(context).lastLocation
+//            .addOnSuccessListener { location ->
+//                if (location == null) {
+//                    locationText = "위치 정보 없음"
+//                    return@addOnSuccessListener
+//                }
+//                val geocoder = Geocoder(context, Locale.KOREA)
+//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+//                    geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+//                        locationText = addresses.firstOrNull()?.toDisplayAddress() ?: "주소 변환 실패"
+//                    }
+//                } else {
+//                    @Suppress("DEPRECATION")
+//                    val addresses = runCatching {
+//                        geocoder.getFromLocation(location.latitude, location.longitude, 1)
+//                    }.getOrNull()
+//                    locationText = addresses?.firstOrNull()?.toDisplayAddress() ?: "주소 변환 실패"
+//                }
+//            }
+//            .addOnFailureListener { locationText = "위치 불러오기 실패" }
+//    }
 
     Box(
         modifier = Modifier
@@ -517,6 +588,11 @@ private fun DelegateInfoCard(delegateInfo: String, modifier: Modifier = Modifier
 
 // "시/군 구 동" 형태로 조합 — 예: "용인시 기흥구 동백동"
 private fun Address.toDisplayAddress(): String {
-    val parts = listOfNotNull(subAdminArea, locality, subLocality ?: thoroughfare).distinct()
-    return parts.joinToString(" ").ifBlank { getAddressLine(0) ?: "주소 없음" }
+//    val parts = listOfNotNull(subAdminArea, locality, subLocality ?: thoroughfare).distinct()
+//    return parts.joinToString(" ").ifBlank { getAddressLine(0) ?: "주소 없음" }
+//    locality, subLocality , thoroughfare
+
+    val parts = listOfNotNull(locality, subLocality, thoroughfare)
+    return parts.joinToString(" ").ifBlank { "주소 정보 없음" }
+//    return (getAddressLine(0) ?: "주소 없음").replace("대한민국 ", "").trim()
 }
